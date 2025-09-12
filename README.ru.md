@@ -7,7 +7,7 @@
 
 Демон, который автоматически помечает «медийные» окна (видео/картинки) тегом, чтобы сделать их всегда непрозрачными в Hyprland.
 
-Требование в Hyprland (ваш конфигурационный файл обычно находится по пути ~/.config/hypr/hyprland.conf):
+Требование в Hyprland (ваш конфигурационный файл обычно находится по пути `~/.config/hypr/hyprland.conf`):
 ```conf
 windowrulev2 = opacity 1.0 override 1.0 override, tag:opaque
 ```
