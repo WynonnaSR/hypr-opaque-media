@@ -1,0 +1,97 @@
+name: Feature Request
+description: Suggest a new feature or improvement for hypr-opaque-media
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Description
+      description: Is your feature request related to a problem? Please describe the issue you're trying to solve.
+      placeholder: |
+        I'm always frustrated when...
+        The current workflow doesn't support...
+        It would be helpful if...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see implemented.
+      placeholder: |
+        I would like hypr-opaque-media to...
+        A new configuration option could...
+        The feature should work by...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions or features you've considered.
+      placeholder: |
+        Alternative 1: ...
+        Alternative 2: ...
+        I also considered...
+    validations:
+      required: false
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case and Context
+      description: Provide more context about your use case and how this feature would benefit you and others.
+      placeholder: |
+        This feature would help with...
+        My workflow involves...
+        Other users might benefit because...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: feature-type
+    attributes:
+      label: Feature Type
+      description: What type of feature is this?
+      options:
+        - label: New window matching criteria
+        - label: Configuration option
+        - label: Performance improvement
+        - label: Logging/debugging enhancement
+        - label: Integration with other tools
+        - label: Command-line interface improvement
+        - label: Other (please specify in description)
+
+  - type: checkboxes
+    id: compatibility
+    attributes:
+      label: Compatibility Considerations
+      options:
+        - label: This feature should not break existing configurations
+        - label: This feature may require breaking changes (please explain why in description)
+        - label: This feature would be optional and disabled by default
+        - label: This feature should be enabled by default
+
+  - type: textarea
+    id: implementation-ideas
+    attributes:
+      label: Implementation Ideas
+      description: If you have ideas about how this could be implemented, please share them (optional).
+      placeholder: |
+        This could be implemented by...
+        The configuration might look like...
+        The code changes would involve...
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, mockups, or examples about the feature request here.
+      placeholder: Any additional information, links to similar features in other projects, etc.
+    validations:
+      required: false

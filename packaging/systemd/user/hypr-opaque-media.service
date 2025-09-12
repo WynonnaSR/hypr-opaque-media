@@ -1,0 +1,14 @@
+[Unit]
+Description=Hyprland: auto-tag media/image/video windows as opaque
+
+[Service]
+ExecStart=%h/.local/bin/hypr-opaque-media.py
+Restart=on-failure
+RestartSec=1
+# Optional: override config path or log level and notifications
+# Environment=HYPRO_CONFIG=%h/.config/hypr-opaque-media.json
+# Environment=HYPRO_LOG_LEVEL=DEBUG
+# Environment=HYPRO_NOTIFY_ON_ERRORS=1
+
+[Install]
+WantedBy=graphical-session.target

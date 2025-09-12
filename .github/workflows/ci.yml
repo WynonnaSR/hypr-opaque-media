@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+  schedule:
+    # Run integration tests nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  lint-and-unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black pytest
+          # Optional runtime dependency used in the app (auto-detected in code); safe to have in CI:
+          pip install watchdog
+
+      - name: Lint with ruff
+        run: |
+          ruff --version
+          ruff check .
+
+      - name: Check formatting with black
+        run: |
+          black --version
+          black --check .
+
+      - name: Run unit tests
+        env:
+          # Point tests to the main script module path (as used by tests/test_core.py)
+          HYPRO_MODULE_PATH: ${{ github.workspace }}/hypr-opaque-media.py
+        run: |
+          pytest -m "not integration" -q
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    # Only run integration tests on main branch, workflow_dispatch, or nightly schedule
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest watchdog
+
+      - name: Run integration tests
+        env:
+          HYPRO_MODULE_PATH: ${{ github.workspace }}/hypr-opaque-media.py
+        run: |
+          # Integration tests will be skipped if Wayland/Hyprland environment is not available
+          # In the future, we can add headless Weston/Hyprland setup here
+          pytest -m integration -q

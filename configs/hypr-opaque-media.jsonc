@@ -1,0 +1,94 @@
+{
+  "//": "Tag to apply to matching windows (used in hyprland.conf windowrulev2)",
+  "tag": "opaque",
+
+  "//": "Treat fullscreen windows as media (e.g., video players)",
+  "fullscreen_is_media": true,
+
+  "//": "Treat minimized windows as opaque",
+  "minimized_is_opaque": true,
+
+  "//": "Treat urgent windows as opaque",
+  "urgent_is_opaque": true,
+
+  "//": "Case-insensitive regex matching",
+  "case_insensitive": true,
+
+  "//": "Exact class matches (lowercase)",
+  "classes": ["mpv", "vlc", "imv", "nsxiv", "feh", "eog", "eom"],
+
+  "//": "Title regex patterns (global)",
+  "title_patterns": [
+    "(Picture[- ]in[- ]Picture|Картинка в картинке)",
+    "\\.(mp4|mkv|webm|avi|mov|png|jpe?g|webp|gif|bmp|svg|tiff)(\\)|$| |·|—)"
+  ],
+
+  "//": "Localized title patterns",
+  "title_patterns_localized": {
+    "en": ["Picture in picture", "Picture-in-Picture"],
+    "ru": ["Картинка в картинке"]
+  },
+
+  "//": "AND rules: class regex + title regex",
+  "class_title_rules": [
+    { "class_regex": "(^|\\b)(firefox)(\\b|$)", "title_regex": "(YouTube|Twitch|Vimeo)" },
+    { "class_regex": "(chromium|google-?chrome|brave|vivaldi|microsoft-edge)", "title_regex": "(YouTube|Twitch|Vimeo)" }
+  ],
+
+  "//": "Config reload polling (if watchdog disabled), min 0.1",
+  "config_poll_interval_sec": 8.0,
+
+  "//": "Socket read timeout (seconds), min 0.1",
+  "socket_timeout_sec": 1.0,
+
+  "//": "Use watchdog (if installed) instead of polling",
+  "use_watchdog": false,
+
+  "//": "Desktop notifications on critical errors (checked dynamically per call)",
+  "notify_on_errors": false,
+
+  "//": "Verify closewindow/destroywindow before removing from cache",
+  "safe_close_check": true,
+
+  "//": "Delay between verification retries in safe_close_check (seconds), min 0.01",
+  "safe_close_check_delay_sec": 0.1,
+
+  "//": "Max reconnect attempts (0=infinite)",
+  "max_reconnect_attempts": 0,
+
+  "//": "Enable metrics logging (events, hyprctl calls/errors, bytes, max/current cache, avg/max event time, WARN slow events >100ms, unsupported events, buffer exceed, tag ops, log rotations, config reloads/time, notifications sent, invalid regex patterns)",
+  "enable_metrics": false,
+
+  "//": "Log metrics every N processed events (1..1_000_000)",
+  "metrics_log_every": 1000,
+
+  "//": "Periodic cache cleanup (seconds), min 1s",
+  "cache_clean_interval_sec": 300.0,
+
+  "//": "Heartbeat log interval when no events (seconds), min 1s",
+  "heartbeat_interval_sec": 600.0,
+
+  "//": "Independent interval for buffer size logs (seconds), min 1s",
+  "buffer_log_interval_sec": 600.0,
+
+  "//": "Max size of socket event buffer (bytes), min 4096; buffer is cleared on exceed (WARN, logs actual size)",
+  "max_buffer_size_bytes": 1048576,
+
+  "//": "Socket recv buffer size (bytes), min 1024",
+  "socket_buffer_size_bytes": 4096,
+
+  "//": "Optional log file path; if null, logs go to stdout",
+  "log_file": null,
+
+  "//": "Max log file size (bytes), min 1024; rotates to .bak when exceeded",
+  "max_log_file_size_bytes": 1048576,
+
+  "//": "Max number of rotated .bak log files to keep, min 1",
+  "max_log_rotations": 5,
+
+  "//": "Log format string for stdout and file logging",
+  "log_format": "[hypr-opaque] %(levelname)s: %(message)s",
+
+  "//": "Log level: DEBUG/INFO/WARNING/ERROR",
+  "log_level": "INFO"
+}

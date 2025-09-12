@@ -1,0 +1,39 @@
+# Tooling config for hypr-opaque-media (lint/format/test)
+
+[tool.black]
+line-length = 100
+target-version = ["py39"]
+skip-string-normalization = false
+
+[tool.ruff]
+# Lint for Python 3.9+ syntax, keep line length in sync with Black
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+# Enable a practical set of rules:
+# E/F: pycodestyle/pyflakes, I: import sorting, UP: pyupgrade, B: bugbear, SIM: simplify
+select = ["E", "F", "I", "UP", "B", "SIM"]
+# You can ignore rules here if needed, e.g. ["ANN", "D"] to skip type-hints/docstrings checks
+ignore = []
+
+[tool.ruff.lint.isort]
+# Let Ruff manage import sorting (compatible with Black)
+known-first-party = ["hypr_opaque_media"]
+combine-as-imports = true
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["test"]
+# Marker definitions to avoid PytestUnknownMarkWarning
+markers = [
+    "integration: marks tests that require Hyprland/Wayland environment (integration tests)",
+    "linux: marks tests that require Linux platform", 
+    "requires_wayland: marks tests that require Wayland session",
+    "slow: marks tests that are slow to run",
+]
+# Note: HYPRO_MODULE_PATH is set in CI before running pytest to point at hypr-opaque-media.py
+
+[build-system]
+requires = []
+build-backend = "setuptools.build_meta"

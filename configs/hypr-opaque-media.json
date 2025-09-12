@@ -1,0 +1,53 @@
+{
+  "tag": "opaque",
+  "fullscreen_is_media": true,
+  "minimized_is_opaque": true,
+  "urgent_is_opaque": true,
+  "case_insensitive": true,
+  "classes": [
+    "mpv",
+    "vlc",
+    "celluloid",
+    "io.github.celluloid_player.Celluloid",
+    "imv",
+    "swayimg",
+    "nsxiv",
+    "feh",
+    "loupe",
+    "gwenview",
+    "ristretto",
+    "eog",
+    "eom"
+  ],
+  "title_patterns": [
+    "(Picture[- ]in[- ]Picture|Картинка в картинке)",
+    "\\.(mp4|mkv|webm|avi|mov|png|jpe?g|webp|gif|bmp|svg|tiff)(\\)|$| |·|—)"
+  ],
+  "title_patterns_localized": {
+    "en": ["Picture in picture", "Picture-in-Picture"],
+    "ru": ["Картинка в картинке"]
+  },
+  "class_title_rules": [
+    { "class_regex": "(^|\\b)(firefox)(\\b|$)", "title_regex": "(YouTube|Twitch|Vimeo)" },
+    { "class_regex": "(chromium|google-?chrome|brave|vivaldi|microsoft-edge)", "title_regex": "(YouTube|Twitch|Vimeo)" }
+  ],
+  "config_poll_interval_sec": 8.0,
+  "socket_timeout_sec": 1.0,
+  "use_watchdog": false,
+  "notify_on_errors": false,
+  "safe_close_check": true,
+  "safe_close_check_delay_sec": 0.1,
+  "max_reconnect_attempts": 0,
+  "enable_metrics": false,
+  "metrics_log_every": 1000,
+  "cache_clean_interval_sec": 300.0,
+  "heartbeat_interval_sec": 600.0,
+  "buffer_log_interval_sec": 600.0,
+  "max_buffer_size_bytes": 1048576,
+  "socket_buffer_size_bytes": 4096,
+  "log_file": null,
+  "max_log_file_size_bytes": 1048576,
+  "max_log_rotations": 5,
+  "log_format": "[hypr-opaque] %(levelname)s: %(message)s",
+  "log_level": "INFO"
+}

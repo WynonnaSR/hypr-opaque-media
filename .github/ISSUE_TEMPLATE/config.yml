@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation and Usage Help
+    url: https://github.com/WynonnaSR/hypr-opaque-media/blob/main/README.md
+    about: Please check the README for usage instructions and troubleshooting tips before creating an issue.
