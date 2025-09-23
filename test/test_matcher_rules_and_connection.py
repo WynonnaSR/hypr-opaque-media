@@ -1,12 +1,12 @@
+import importlib.util
+import logging
 import os
 import sys
-import logging
-import importlib.util
 import unittest
 from itertools import chain, repeat
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-# Загружаем локальный скрипт из репозитория и регистрируем модуль (для корректной работы dataclass на Py 3.13)
+# Загружаем локальный скрипт из репозитория и регистрируем модуль
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _LOCAL_SCRIPT = os.path.join(_REPO_ROOT, "hypr-opaque-media.py")
 MODULE_PATH = os.path.expanduser(os.environ.get("HYPRO_MODULE_PATH", _LOCAL_SCRIPT))
@@ -98,8 +98,11 @@ class TestCoreMore(unittest.TestCase):
             "0xA": mod.ClientInfo(address="0xA", cls="mpv", title="Video", tags=set()),
         }
         with (
-            patch("hypr_opaque_media_runtime_more.hypr_clients", return_value=hc_out),
-            patch("hypr_opaque_media_runtime_more.ensure_tag") as _mock_ensure,
+            patch(
+                "hypr_opaque_media_runtime_more.hypr_clients",
+                return_value=hc_out,
+            ),
+            patch("hypr_opaque_media_runtime_more.ensure_tag"),
         ):
             # workspace -> пересобрать кэш
             mod.handle_event("workspace", {"name": "1"}, clients, cfg, m)
@@ -128,19 +131,30 @@ class TestCoreMore(unittest.TestCase):
             def close(self):
                 pass
 
-        with patch("hypr_opaque_media_runtime_more.socket.socket") as mock_sock_cls, patch(
-            "hypr_opaque_media_runtime_more.time.sleep", return_value=None
+        with (
+            patch("hypr_opaque_media_runtime_more.socket.socket") as mock_sock_cls,
+            patch("hypr_opaque_media_runtime_more.time.sleep", return_value=None),
         ):
             mock_sock = Sock()
             mock_sock_cls.return_value = mock_sock  # type: ignore
-            s = mod._connect_with_backoff("/tmp/sock", timeout_sec=0.1, max_attempts=2, notify_on_errors=False)
+            s = mod._connect_with_backoff(
+                "/tmp/sock",
+                timeout_sec=0.1,
+                max_attempts=2,
+                notify_on_errors=False,
+            )
             self.assertIsNotNone(s)
 
     def test_toggle_tag_exception_path(self):
         # subprocess.run кидает исключение — toggle_tag пробрасывает его наружу
-        with patch("hypr_opaque_media_runtime_more.subprocess.run", side_effect=RuntimeError("boom")):
-            with self.assertRaises(RuntimeError):
-                mod.toggle_tag("0x1", "opaque")
+        with (
+            patch(
+                "hypr_opaque_media_runtime_more.subprocess.run",
+                side_effect=RuntimeError("boom"),
+            ),
+            self.assertRaises(RuntimeError),
+        ):
+            mod.toggle_tag("0x1", "opaque")
 
     def test_main_heartbeat_log_when_no_events(self):
         # Настроим heartbeat и отсутствие событий так, чтобы сработал "No events received..."
@@ -164,14 +178,24 @@ class TestCoreMore(unittest.TestCase):
             return mock_sock
 
         with (
-            patch("hypr_opaque_media_runtime_more.load_config", return_value=(cfg, matcher, 0.0)),
-            patch("hypr_opaque_media_runtime_more._connect_with_backoff", side_effect=fake_connect),
+            patch(
+                "hypr_opaque_media_runtime_more.load_config",
+                return_value=(cfg, matcher, 0.0),
+            ),
+            patch(
+                "hypr_opaque_media_runtime_more._connect_with_backoff",
+                side_effect=fake_connect,
+            ),
             patch("hypr_opaque_media_runtime_more.sh_json") as mock_sh_json,
             patch("hypr_opaque_media_runtime_more.time.monotonic") as mock_time,
-            patch("hypr_opaque_media_runtime_more.time.sleep", return_value=None),
+            patch(
+                "hypr_opaque_media_runtime_more.time.sleep",
+                return_value=None,
+            ),
             patch("hypr_opaque_media_runtime_more.log") as mock_log,
             patch("hypr_opaque_media_runtime_more.subprocess.run") as mock_run,
         ):
+
             class P:
                 def __init__(self):
                     self.returncode = 0
@@ -180,7 +204,10 @@ class TestCoreMore(unittest.TestCase):
 
             mock_run.return_value = P()
             # version + возможный clients внутри пересборки кэша
-            mock_sh_json.side_effect = [{"version": "0.42.0", "features": {"address_filter": True}}, []]
+            mock_sh_json.side_effect = [
+                {"version": "0.42.0", "features": {"address_filter": True}},
+                [],
+            ]
 
             # Эмулируем прогресс времени: t0=0.0, затем 0.5, затем > heartbeat (1.5), далее стабильно
             mock_time.side_effect = chain([0.0, 0.5, 1.5, 1.5, 1.5], repeat(1.5))
@@ -192,7 +219,11 @@ class TestCoreMore(unittest.TestCase):
             calls_text = " | ".join(
                 map(
                     str,
-                    (mock_log.info.mock_calls + mock_log.warning.mock_calls + mock_log.debug.mock_calls),
+                    (
+                        mock_log.info.mock_calls
+                        + mock_log.warning.mock_calls
+                        + mock_log.debug.mock_calls
+                    ),
                 )
             )
             self.assertIn("No events received", calls_text)

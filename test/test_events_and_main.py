@@ -44,11 +44,11 @@ Covers:
 # Prefer local repository script if present; allow override via HYPRO_MODULE_PATH; else fallback to ~/.local/bin
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _LOCAL_SCRIPT = os.path.join(_REPO_ROOT, "hypr-opaque-media.py")
-_DEFAULT_SCRIPT = _LOCAL_SCRIPT if os.path.exists(_LOCAL_SCRIPT) else "~/.local/bin/hypr-opaque-media.py"
-
-MODULE_PATH = os.path.expanduser(
-    os.environ.get("HYPRO_MODULE_PATH", _DEFAULT_SCRIPT)
+_DEFAULT_SCRIPT = (
+    _LOCAL_SCRIPT if os.path.exists(_LOCAL_SCRIPT) else "~/.local/bin/hypr-opaque-media.py"
 )
+
+MODULE_PATH = os.path.expanduser(os.environ.get("HYPRO_MODULE_PATH", _DEFAULT_SCRIPT))
 spec = importlib.util.spec_from_file_location("hypr_opaque_media_runtime", MODULE_PATH)
 mod = importlib.util.module_from_spec(spec)
 sys.modules["hypr_opaque_media_runtime"] = mod  # register to allow relative imports if any

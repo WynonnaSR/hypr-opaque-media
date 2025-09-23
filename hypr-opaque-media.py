@@ -853,7 +853,9 @@ def check_hyprland_version() -> None:
             # В некоторых сборках может быть флаг поддержки address_filter
             if "address_filter" in features:
                 _ADDRESS_FILTER_SUPPORTED = bool(features.get("address_filter"))
-                log.debug("hyprctl clients address: filter supported: %s", _ADDRESS_FILTER_SUPPORTED)
+                log.debug(
+                    "hyprctl clients address: filter supported: %s", _ADDRESS_FILTER_SUPPORTED
+                )
         else:
             log.debug("No 'features' in hyprctl version output (that's fine)")
     else:
@@ -880,7 +882,14 @@ def handle_event(
 
     # Для ключевых событий используем фолбэк на активное окно,
     # если адрес так и не найден (Hypr v0.50+ иногда не шлёт address).
-    if addr is None and ev in ("windowtitle", "activewindow", "focuswindow", "openwindow", "minimized", "urgent"):
+    if addr is None and ev in (
+        "windowtitle",
+        "activewindow",
+        "focuswindow",
+        "openwindow",
+        "minimized",
+        "urgent",
+    ):
         addr = hypr_active_window_address()
         if addr:
             log.debug("Event %s without address: using active window %s", ev, addr)
@@ -915,8 +924,12 @@ def handle_event(
         if not addr:
             log.debug("%s event without address, skipping", ev)
             return
-        changed = ensure_tag(addr, cfg.tag, matcher.should_be_opaque(clients[addr]), clients[addr].tags)
-        log.debug("Processed %s for %s: %s", ev, addr, "tag updated" if changed else "no tag change")
+        changed = ensure_tag(
+            addr, cfg.tag, matcher.should_be_opaque(clients[addr]), clients[addr].tags
+        )
+        log.debug(
+            "Processed %s for %s: %s", ev, addr, "tag updated" if changed else "no tag change"
+        )
 
     elif ev in ("changetag", "windowtag", "windowtagdel", "tagadded", "tagremoved"):
         if addr:
@@ -924,8 +937,15 @@ def handle_event(
             if updated is not None:
                 clients[addr].tags = updated.tags
                 _metrics_update_max_cache(len(clients))
-                changed = ensure_tag(addr, cfg.tag, matcher.should_be_opaque(clients[addr]), clients[addr].tags)
-                log.debug("Processed %s for %s: %s", ev, addr, "tag updated" if changed else "no tag change")
+                changed = ensure_tag(
+                    addr, cfg.tag, matcher.should_be_opaque(clients[addr]), clients[addr].tags
+                )
+                log.debug(
+                    "Processed %s for %s: %s",
+                    ev,
+                    addr,
+                    "tag updated" if changed else "no tag change",
+                )
 
     elif ev in ("movewindow", "windowmoved", "windowresized", "float"):
         if addr:
@@ -934,7 +954,12 @@ def handle_event(
                 clients[addr] = updated
                 _metrics_update_max_cache(len(clients))
                 changed = ensure_tag(addr, cfg.tag, matcher.should_be_opaque(updated), updated.tags)
-                log.debug("Processed %s for %s: %s", ev, addr, "tag updated" if changed else "no tag change")
+                log.debug(
+                    "Processed %s for %s: %s",
+                    ev,
+                    addr,
+                    "tag updated" if changed else "no tag change",
+                )
 
     elif ev in ("focuswindow", "activewindow", "screencopy", "minimized", "urgent"):
         if addr:
@@ -949,7 +974,12 @@ def handle_event(
                 clients[addr] = updated
                 _metrics_update_max_cache(len(clients))
                 changed = ensure_tag(addr, cfg.tag, matcher.should_be_opaque(updated), updated.tags)
-                log.debug("Processed %s for %s: %s", ev, addr, "tag updated" if changed else "no tag change")
+                log.debug(
+                    "Processed %s for %s: %s",
+                    ev,
+                    addr,
+                    "tag updated" if changed else "no tag change",
+                )
 
     elif ev == "workspace":
         log.debug("Workspace changed, refreshing cache")

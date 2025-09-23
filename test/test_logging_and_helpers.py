@@ -1,11 +1,11 @@
+import importlib.util
+import logging
 import os
 import sys
-import logging
-import importlib.util
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-# Загружаем локальный скрипт из репозитория и регистрируем модуль (для корректной работы dataclass на Py 3.13)
+# Загружаем локальный скрипт из репозитория и регистрируем модуль
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _LOCAL_SCRIPT = os.path.join(_REPO_ROOT, "hypr-opaque-media.py")
 MODULE_PATH = os.path.expanduser(os.environ.get("HYPRO_MODULE_PATH", _LOCAL_SCRIPT))
@@ -42,11 +42,17 @@ class TestCoreExtra(unittest.TestCase):
             self.assertTrue(mock_run.called)
 
         # FileNotFoundError
-        with patch("hypr_opaque_media_runtime_extra.subprocess.run", side_effect=FileNotFoundError):
+        with patch(
+            "hypr_opaque_media_runtime_extra.subprocess.run",
+            side_effect=FileNotFoundError,
+        ):
             self.assertFalse(mod._has_notify_send())
 
         # Другая ошибка
-        with patch("hypr_opaque_media_runtime_extra.subprocess.run", side_effect=RuntimeError("x")):
+        with patch(
+            "hypr_opaque_media_runtime_extra.subprocess.run",
+            side_effect=RuntimeError("x"),
+        ):
             self.assertFalse(mod._has_notify_send())
 
     def test_toggle_tag_success_and_failure(self):
@@ -57,12 +63,18 @@ class TestCoreExtra(unittest.TestCase):
                 self.stderr = ""
 
         # rc=0 (успех)
-        with patch("hypr_opaque_media_runtime_extra.subprocess.run", return_value=P(0)) as mock_run:
+        with patch(
+            "hypr_opaque_media_runtime_extra.subprocess.run",
+            return_value=P(0),
+        ) as mock_run:
             mod.toggle_tag("0x1", "opaque")
             self.assertTrue(mock_run.called)
 
         # rc!=0 (ошибка, но не исключение)
-        with patch("hypr_opaque_media_runtime_extra.subprocess.run", return_value=P(1)) as mock_run:
+        with patch(
+            "hypr_opaque_media_runtime_extra.subprocess.run",
+            return_value=P(1),
+        ) as mock_run:
             mod.toggle_tag("0x2", "opaque")
             self.assertTrue(mock_run.called)
 
@@ -74,8 +86,13 @@ class TestCoreExtra(unittest.TestCase):
     def test_hypr_clients_skips_without_address_and_uses_initial_fields(self):
         with patch("hypr_opaque_media_runtime_extra.sh_json") as mock_json:
             mock_json.return_value = [
-                {"class": "mpv", "title": "Video"},  # без address -> должен быть пропущен
-                {"address": "0x1", "initialClass": "IMV", "initialTitle": "IMG", "tags": []},
+                {"class": "mpv", "title": "Video"},  # без address -> пропускается
+                {
+                    "address": "0x1",
+                    "initialClass": "IMV",
+                    "initialTitle": "IMG",
+                    "tags": [],
+                },
             ]
             out = mod.hypr_clients()
             self.assertEqual(list(out.keys()), ["0x1"])
@@ -114,7 +131,10 @@ class TestCoreExtra(unittest.TestCase):
         self.assertGreaterEqual(len(lg.handlers), 1)
 
     def test_sh_json_generic_exception_in_run(self):
-        with patch("hypr_opaque_media_runtime_extra.subprocess.run", side_effect=RuntimeError("boom")):
+        with patch(
+            "hypr_opaque_media_runtime_extra.subprocess.run",
+            side_effect=RuntimeError("boom"),
+        ):
             res = mod.sh_json(["clients"])
             self.assertIsNone(res)
             self.assertGreaterEqual(mod._METRICS["hyprctl_errors"], 1)
@@ -134,13 +154,20 @@ class TestCoreExtra(unittest.TestCase):
             ]
             removed = mod.clean_stale_clients(clients, b"")
             self.assertEqual(removed, 0)
-            self.assertTrue(any("No stale clients found" in str(c) for c in mock_log.debug.mock_calls))
+            self.assertTrue(
+                any("No stale clients found" in str(c) for c in mock_log.debug.mock_calls)
+            )
 
     def test_main_early_exit_when_hyprctl_missing(self):
         # hyprctl --version бросит FileNotFoundError => sys.exit(1)
-        with patch("hypr_opaque_media_runtime_extra.subprocess.run", side_effect=FileNotFoundError):
-            with self.assertRaises(SystemExit):
-                mod.main()
+        with (
+            patch(
+                "hypr_opaque_media_runtime_extra.subprocess.run",
+                side_effect=FileNotFoundError,
+            ),
+            self.assertRaises(SystemExit),
+        ):
+            mod.main()
 
     def test_config_watcher_on_modified_triggers_callback(self):
         called = {"n": 0}
