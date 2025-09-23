@@ -178,6 +178,8 @@ class TestCoreMore(unittest.TestCase):
             return mock_sock
 
         with (
+            # Имитируем наличие сессии Hyprland, чтобы main() не вызывал sys.exit(1)
+            patch.dict(os.environ, {"HYPRLAND_INSTANCE_SIGNATURE": "test-signature"}, clear=False),
             patch(
                 "hypr_opaque_media_runtime_more.load_config",
                 return_value=(cfg, matcher, 0.0),
