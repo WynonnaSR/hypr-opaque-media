@@ -60,6 +60,9 @@ _METRICS: dict[str, int] = {
     "invalid_regex_patterns": 0,
 }
 
+# Runtime‑детектор поддержки address‑фильтра у hyprctl clients
+_ADDRESS_FILTER_SUPPORTED: bool | None = None
+
 
 def _metrics_inc(key: str, delta: int = 1) -> None:
     if _METRICS_ENABLED:
@@ -250,32 +253,40 @@ def hypr_clients() -> dict[str, ClientInfo]:
 def hypr_client_by_address(address: str) -> ClientInfo | None:
     """
     Try to fetch a single client by address using hyprctl filter if available,
-    fall back to scanning the full list.
+    fall back to scanning the full list. After first failure, stop using the filter.
     """
-    data = sh_json(["clients", f"address:{address}"])
-    if isinstance(data, dict) and data.get("address") == address:
-        return ClientInfo(
-            address=address,
-            cls=(data.get("class") or data.get("initialClass") or "").lower(),
-            title=(data.get("title") or data.get("initialTitle") or ""),
-            fullscreen=bool(data.get("fullscreen")),
-            minimized=bool(data.get("minimized")),
-            urgent=bool(data.get("urgent")),
-            tags=set(data.get("tags") or []),
-        )
-    if isinstance(data, list):
-        for c in data:
-            if isinstance(c, dict) and c.get("address") == address:
-                return ClientInfo(
-                    address=address,
-                    cls=(c.get("class") or c.get("initialClass") or "").lower(),
-                    title=(c.get("title") or c.get("initialTitle") or ""),
-                    fullscreen=bool(c.get("fullscreen")),
-                    minimized=bool(c.get("minimized")),
-                    urgent=bool(c.get("urgent")),
-                    tags=set(c.get("tags") or []),
-                )
-    log.debug("Address filter failed for %s, falling back to full scan", address)
+    global _ADDRESS_FILTER_SUPPORTED
+
+    # Если ещё не знаем, попробуем один раз
+    if _ADDRESS_FILTER_SUPPORTED is not False:
+        data = sh_json(["clients", f"address:{address}"])
+        # При успехе hyprctl может вернуть dict или list с записью
+        if isinstance(data, dict) and data.get("address") == address:
+            return ClientInfo(
+                address=address,
+                cls=(data.get("class") or data.get("initialClass") or "").lower(),
+                title=(data.get("title") or data.get("initialTitle") or ""),
+                fullscreen=bool(data.get("fullscreen")),
+                minimized=bool(data.get("minimized")),
+                urgent=bool(data.get("urgent")),
+                tags=set(data.get("tags") or []),
+            )
+        if isinstance(data, list):
+            for c in data:
+                if isinstance(c, dict) and c.get("address") == address:
+                    return ClientInfo(
+                        address=address,
+                        cls=(c.get("class") or c.get("initialClass") or "").lower(),
+                        title=(c.get("title") or c.get("initialTitle") or ""),
+                        fullscreen=bool(c.get("fullscreen")),
+                        minimized=bool(c.get("minimized")),
+                        urgent=bool(c.get("urgent")),
+                        tags=set(c.get("tags") or []),
+                    )
+        # Если дошли сюда — фильтр не дал результата (или JSON невалидный) — больше не пробуем
+        _ADDRESS_FILTER_SUPPORTED = False
+
+    # Фоллбек: полный список
     allc = sh_json(["clients"]) or []
     for c in allc:
         if c.get("address") == address:
@@ -294,7 +305,7 @@ def hypr_client_by_address(address: str) -> ClientInfo | None:
 def toggle_tag(address: str, tag: str) -> None:
     """Toggle a tag on a specific window address."""
     result = subprocess.run(
-        ["hyprctl", "dispatch", "tagwindow", f"{tag},address:{address}"],
+        ["hyprctl", "dispatch", "tagwindow", tag, f"address:{address}"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=False,
@@ -329,20 +340,81 @@ def ensure_tag(address: str, tag: str, want: bool, known_tags: set[str]) -> bool
 
 
 def parse_event(line: bytes) -> tuple[str | None, dict[str, str]]:
-    """Parse socket2 event line 'event>>k:v,k:v'. Returns (event_name, dict)."""
+    """Parse socket2 line: either JSON payload (event>>{...}) or legacy k:v,k:v."""
     if not line:
         return None, {}
     try:
         head, payload = line.split(b">>", 1)
     except ValueError:
         return None, {}
-    ev = head.decode(errors="ignore")
+    ev = head.decode(errors="ignore").strip()
+    payload = payload.strip()
+
+    # Try JSON payload first
+    if payload.startswith(b"{") and payload.endswith(b"}"):
+        try:
+            obj = json.loads(payload.decode("utf-8", "ignore"))
+            parts: dict[str, str] = {}
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    parts[str(k)] = "" if v is None else str(v)
+            return ev, parts
+        except Exception:
+            pass  # fall back
+
+    # Legacy k:v,k:v parsing; strip quotes from both keys and values
     parts: dict[str, str] = {}
     for chunk in payload.split(b","):
-        if b":" in chunk:
-            k, v = chunk.split(b":", 1)
-            parts[k.decode(errors="ignore").strip()] = v.decode(errors="ignore").strip()
+        if b":" not in chunk:
+            continue
+        k, v = chunk.split(b":", 1)
+        ks = k.decode(errors="ignore").strip().strip('"').strip("'")
+        vs = v.decode(errors="ignore").strip().strip('"').strip("'")
+        parts[ks] = vs
     return ev, parts
+
+
+def normalize_event_name(ev: str) -> str:
+    """Map new '-v2' events back to legacy names the handler understands."""
+    if ev.endswith("v2"):
+        return ev[:-2]
+    return ev
+
+
+def _normalize_address_string(addr: str | None) -> str | None:
+    """Return normalized hex address like 0x..., or None."""
+    if not addr:
+        return None
+    a = addr.strip()
+    # некоторые payload присылают address в виде "0x..." уже ок
+    # на всякий случай оставим простую проверку
+    return a if a.startswith("0x") else None
+
+
+def get_address_from_parts(parts: dict[str, str]) -> str | None:
+    """Try to extract window address from various possible keys."""
+    candidates = (
+        "address",
+        "addr",
+        "windowaddress",
+        "window_address",
+        "windowAddr",
+        "window",
+    )
+    for k in candidates:
+        if k in parts:
+            a = _normalize_address_string(parts.get(k))
+            if a:
+                return a
+    return None
+
+
+def hypr_active_window_address() -> str | None:
+    """Get the currently active window address via hyprctl."""
+    data = sh_json(["activewindow"])
+    if isinstance(data, dict):
+        return _normalize_address_string(str(data.get("address", "") or ""))
+    return None
 
 
 # --------------------------------------------------------------------------------------
@@ -768,6 +840,7 @@ def load_config(path: str) -> tuple[RuleConfig, Matcher, float]:
 
 
 def check_hyprland_version() -> None:
+    global _ADDRESS_FILTER_SUPPORTED
     data = sh_json(["version"])
     if data is None:
         log.warning("Failed to fetch Hyprland version: hyprctl version -j failed")
@@ -777,12 +850,12 @@ def check_hyprland_version() -> None:
         log.info("Hyprland version: %s", ver or "unknown")
         features = data.get("features", {})
         if isinstance(features, dict):
-            if features.get("address_filter", False):
-                log.debug("Address filter supported by hyprctl clients")
-            else:
-                log.debug("Address filter not reported; will fall back to full scan as needed")
+            # В некоторых сборках может быть флаг поддержки address_filter
+            if "address_filter" in features:
+                _ADDRESS_FILTER_SUPPORTED = bool(features.get("address_filter"))
+                log.debug("hyprctl clients address: filter supported: %s", _ADDRESS_FILTER_SUPPORTED)
         else:
-            log.warning("Unexpected features format in hyprctl version: %s", features)
+            log.debug("No 'features' in hyprctl version output (that's fine)")
     else:
         log.warning("Unexpected response from hyprctl version -j: %s", data)
 
@@ -802,7 +875,15 @@ def handle_event(
     Handle a single Hyprland event. Mutates clients cache, may call hyprctl.
     Intended for reuse in main loop and tests.
     """
-    addr = parts.get("address")
+    # Сначала постараемся вытащить адрес из payload
+    addr = get_address_from_parts(parts)
+
+    # Для ключевых событий используем фолбэк на активное окно,
+    # если адрес так и не найден (Hypr v0.50+ иногда не шлёт address).
+    if addr is None and ev in ("windowtitle", "activewindow", "focuswindow", "openwindow", "minimized", "urgent"):
+        addr = hypr_active_window_address()
+        if addr:
+            log.debug("Event %s without address: using active window %s", ev, addr)
 
     # Update cache from event payload (cheap path)
     if addr:
@@ -834,10 +915,8 @@ def handle_event(
         if not addr:
             log.debug("%s event without address, skipping", ev)
             return
-        if addr in clients and ensure_tag(
-            addr, cfg.tag, matcher.should_be_opaque(clients[addr]), clients[addr].tags
-        ):
-            log.debug("Processed %s for %s: tag updated", ev, addr)
+        changed = ensure_tag(addr, cfg.tag, matcher.should_be_opaque(clients[addr]), clients[addr].tags)
+        log.debug("Processed %s for %s: %s", ev, addr, "tag updated" if changed else "no tag change")
 
     elif ev in ("changetag", "windowtag", "windowtagdel", "tagadded", "tagremoved"):
         if addr:
@@ -845,10 +924,8 @@ def handle_event(
             if updated is not None:
                 clients[addr].tags = updated.tags
                 _metrics_update_max_cache(len(clients))
-                if ensure_tag(
-                    addr, cfg.tag, matcher.should_be_opaque(clients[addr]), clients[addr].tags
-                ):
-                    log.debug("Processed %s for %s: tag updated", ev, addr)
+                changed = ensure_tag(addr, cfg.tag, matcher.should_be_opaque(clients[addr]), clients[addr].tags)
+                log.debug("Processed %s for %s: %s", ev, addr, "tag updated" if changed else "no tag change")
 
     elif ev in ("movewindow", "windowmoved", "windowresized", "float"):
         if addr:
@@ -856,8 +933,8 @@ def handle_event(
             if updated is not None:
                 clients[addr] = updated
                 _metrics_update_max_cache(len(clients))
-                if ensure_tag(addr, cfg.tag, matcher.should_be_opaque(updated), updated.tags):
-                    log.debug("Processed %s for %s: tag updated", ev, addr)
+                changed = ensure_tag(addr, cfg.tag, matcher.should_be_opaque(updated), updated.tags)
+                log.debug("Processed %s for %s: %s", ev, addr, "tag updated" if changed else "no tag change")
 
     elif ev in ("focuswindow", "activewindow", "screencopy", "minimized", "urgent"):
         if addr:
@@ -871,8 +948,8 @@ def handle_event(
                     updated.urgent = str(state).strip() in ("1", "true", "True")
                 clients[addr] = updated
                 _metrics_update_max_cache(len(clients))
-                if ensure_tag(addr, cfg.tag, matcher.should_be_opaque(updated), updated.tags):
-                    log.debug("Processed %s for %s: tag updated", ev, addr)
+                changed = ensure_tag(addr, cfg.tag, matcher.should_be_opaque(updated), updated.tags)
+                log.debug("Processed %s for %s: %s", ev, addr, "tag updated" if changed else "no tag change")
 
     elif ev == "workspace":
         log.debug("Workspace changed, refreshing cache")
@@ -927,8 +1004,9 @@ def handle_event(
                 _metrics_update_max_cache(len(clients))
 
     else:
-        log.warning("Unsupported event %s ignored: %s", ev, parts)
-        _metrics_inc("unsupported_events")
+        # Понижаем шум: v2‑события уже нормализуются, остальное логируем на DEBUG
+        log.debug("Unsupported event %s ignored: %s", ev, parts)
+        _METRICS["unsupported_events"] = _METRICS.get("unsupported_events", 0) + 1
 
 
 # --------------------------------------------------------------------------------------
@@ -1034,7 +1112,7 @@ def main() -> None:
     # hyprctl availability check
     try:
         subprocess.run(
-            ["hyprctl", "--version"],
+            ["hyprctl", "version"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             check=True,
@@ -1278,6 +1356,14 @@ def main() -> None:
                         ev, parts = parse_event(line)
                         if not ev:
                             continue
+
+                        # Нормализация названий событий (v2 -> base)
+                        ev = normalize_event_name(ev)
+
+                        # Приглушаем шум от смены фокуса монитора (не влияет на теги)
+                        if ev in ("focusedmon",):
+                            continue
+
                         _metrics_inc("events_processed")
                         _metrics_maybe_log()
                         last_event_received = time.monotonic()

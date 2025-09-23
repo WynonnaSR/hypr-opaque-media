@@ -6,6 +6,7 @@ import os
 import sys
 import time as _time
 import unittest
+from itertools import chain, repeat
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -40,8 +41,13 @@ Covers:
 - notify_error dynamic check + notifications_sent metric.
 """
 
+# Prefer local repository script if present; allow override via HYPRO_MODULE_PATH; else fallback to ~/.local/bin
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_LOCAL_SCRIPT = os.path.join(_REPO_ROOT, "hypr-opaque-media.py")
+_DEFAULT_SCRIPT = _LOCAL_SCRIPT if os.path.exists(_LOCAL_SCRIPT) else "~/.local/bin/hypr-opaque-media.py"
+
 MODULE_PATH = os.path.expanduser(
-    os.environ.get("HYPRO_MODULE_PATH", "~/.local/bin/hypr-opaque-media.py")
+    os.environ.get("HYPRO_MODULE_PATH", _DEFAULT_SCRIPT)
 )
 spec = importlib.util.spec_from_file_location("hypr_opaque_media_runtime", MODULE_PATH)
 mod = importlib.util.module_from_spec(spec)
@@ -322,12 +328,28 @@ class TestMatcherAndHelpers(unittest.TestCase):
         def slow_handle(ev, parts, clients, cfg, matcher):
             _time.sleep(0.12)
 
+        # Prepare a controllable socket mock
+        mock_sock = MagicMock()
+        mock_sock.__enter__.return_value = mock_sock
+        mock_sock.__exit__.return_value = False
+        mock_sock.recv.side_effect = [b"openwindow>>address:0x1\n", KeyboardInterrupt()]
+
+        # Make the first connect succeed, the second raise OSError to break the outer loop
+        connect_calls = {"n": 0}
+
+        def fake_connect(sock_path, timeout_sec, max_attempts, notify_on_errors):
+            connect_calls["n"] += 1
+            if connect_calls["n"] == 1:
+                return mock_sock
+            raise OSError("stop outer loop")
+
         with (
             patch("hypr_opaque_media_runtime.load_config", return_value=(cfg, matcher, 0.0)),
-            patch("socket.socket") as mock_socket,
+            patch("hypr_opaque_media_runtime._connect_with_backoff", side_effect=fake_connect),
             patch("hypr_opaque_media_runtime.sh_json") as mock_sh_json,
             patch("hypr_opaque_media_runtime.handle_event", side_effect=slow_handle),
             patch("hypr_opaque_media_runtime.time.monotonic") as mock_time,
+            patch("hypr_opaque_media_runtime.time.sleep", return_value=None),
             patch("hypr_opaque_media_runtime.log") as mock_log,
             patch("hypr_opaque_media_runtime.subprocess.run") as mock_run,
         ):
@@ -355,12 +377,8 @@ class TestMatcherAndHelpers(unittest.TestCase):
                 ],
             ]
 
-            mock_sock = MagicMock()
-            mock_socket.return_value = mock_sock
-            mock_sock.__enter__.return_value = mock_sock
-            mock_sock.__exit__.return_value = False
-            mock_sock.recv.side_effect = [b"openwindow>>address:0x1\n", KeyboardInterrupt()]
-            mock_time.side_effect = [0.0, 0.0, 0.0, 2.0]  # allow buffer log and loop
+            # Ensure: initial now=0.0, then 2.0 to trigger buffer log, then start=2.0, end=2.2 -> 200ms
+            mock_time.side_effect = chain([0.0, 2.0, 2.0, 2.0, 2.0, 2.2], repeat(2.2))
 
             with contextlib.suppress(SystemExit, KeyboardInterrupt):
                 mod.main()
@@ -526,13 +544,28 @@ class TestMatcherAndHelpers(unittest.TestCase):
         cfg = mod.RuleConfig()
         m = mod.Matcher(cfg)
         clients = {}
-        with patch("hypr_opaque_media_runtime.log") as mock_log:
+        # Надежный способ: вешаем временный handler и ловим запись WARNING
+        records = []
+
+        class _ListHandler(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        logger = mod.log
+        lh = _ListHandler()
+        old_level = logger.level
+        try:
+            logger.addHandler(lh)
+            logger.setLevel(logging.DEBUG)
             mod._METRICS_ENABLED = True
             mod._METRICS.update({"unsupported_events": 0})
             ev, parts = "unknown_event", {"foo": "bar"}
             mod.handle_event(ev, parts, clients, cfg, m)
-            self.assertTrue(mock_log.warning.called)
+            self.assertTrue(any("Unsupported event" in r.getMessage() for r in records))
             self.assertEqual(mod._METRICS["unsupported_events"], 1)
+        finally:
+            logger.removeHandler(lh)
+            logger.setLevel(old_level)
 
     @pytest.mark.integration
     @pytest.mark.linux
