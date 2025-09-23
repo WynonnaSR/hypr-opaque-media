@@ -209,7 +209,8 @@ class TestCoreMore(unittest.TestCase):
                 [],
             ]
 
-            # Эмулируем прогресс времени: t0=0.0, затем 0.5, затем > heartbeat (1.5), далее стабильно
+            # Эмулируем прогресс времени: t0=0.0, затем 0.5, 
+            # затем > heartbeat (1.5), далее стабильно
             mock_time.side_effect = chain([0.0, 0.5, 1.5, 1.5, 1.5], repeat(1.5))
 
             # main сам перехватывает KeyboardInterrupt и завершается
