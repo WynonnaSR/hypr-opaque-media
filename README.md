@@ -609,4 +609,4 @@ Compatibility notes
 
 ## About / License
 
-[text](README.ru.md)
+[MIT License](LICENSE)
