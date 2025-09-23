@@ -41,7 +41,7 @@ Covers:
 - notify_error dynamic check + notifications_sent metric.
 """
 
-# Prefer local repository script if present; 
+# Prefer local repository script if present;
 # allow override via HYPRO_MODULE_PATH; else fallback to ~/.local/bin
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _LOCAL_SCRIPT = os.path.join(_REPO_ROOT, "hypr-opaque-media.py")
@@ -378,7 +378,7 @@ class TestMatcherAndHelpers(unittest.TestCase):
                 ],
             ]
 
-            # Ensure: initial now=0.0, then 2.0 to trigger buffer log, 
+            # Ensure: initial now=0.0, then 2.0 to trigger buffer log,
             # then start=2.0, end=2.2 -> 200ms
             mock_time.side_effect = chain([0.0, 2.0, 2.0, 2.0, 2.0, 2.2], repeat(2.2))
 
